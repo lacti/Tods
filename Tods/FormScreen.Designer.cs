@@ -59,7 +59,7 @@
             // 
             this.mainSplitContainer.Panel2.Controls.Add(this.statSplitContainer);
             this.mainSplitContainer.Size = new System.Drawing.Size(1450, 786);
-            this.mainSplitContainer.SplitterDistance = 1153;
+            this.mainSplitContainer.SplitterDistance = 1421;
             this.mainSplitContainer.TabIndex = 0;
             this.mainSplitContainer.TabStop = false;
             // 
@@ -68,7 +68,7 @@
             this.gamePanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.gamePanel.Location = new System.Drawing.Point(0, 0);
             this.gamePanel.Name = "gamePanel";
-            this.gamePanel.Size = new System.Drawing.Size(1153, 786);
+            this.gamePanel.Size = new System.Drawing.Size(1421, 786);
             this.gamePanel.TabIndex = 0;
             this.gamePanel.Click += new System.EventHandler(this.gamePanel_Click);
             // 
@@ -86,7 +86,7 @@
             // statSplitContainer.Panel2
             // 
             this.statSplitContainer.Panel2.Controls.Add(this.statPanel);
-            this.statSplitContainer.Size = new System.Drawing.Size(293, 786);
+            this.statSplitContainer.Size = new System.Drawing.Size(25, 786);
             this.statSplitContainer.SplitterDistance = 295;
             this.statSplitContainer.TabIndex = 0;
             this.statSplitContainer.TabStop = false;
@@ -96,7 +96,7 @@
             this.minimapPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.minimapPanel.Location = new System.Drawing.Point(0, 0);
             this.minimapPanel.Name = "minimapPanel";
-            this.minimapPanel.Size = new System.Drawing.Size(293, 295);
+            this.minimapPanel.Size = new System.Drawing.Size(25, 295);
             this.minimapPanel.TabIndex = 0;
             // 
             // statPanel
@@ -104,7 +104,7 @@
             this.statPanel.Dock = System.Windows.Forms.DockStyle.Fill;
             this.statPanel.Location = new System.Drawing.Point(0, 0);
             this.statPanel.Name = "statPanel";
-            this.statPanel.Size = new System.Drawing.Size(293, 487);
+            this.statPanel.Size = new System.Drawing.Size(25, 487);
             this.statPanel.TabIndex = 0;
             // 
             // gameTimer

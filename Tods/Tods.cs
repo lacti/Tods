@@ -33,8 +33,15 @@ namespace Tods
 
         public void AddDrawing(Event evt)
         {
-            _drawingShips.Add(evt.Source.Id, new DrawingShip(evt.Source));
-            _coro.AddEntry(_drawingShips[evt.Source.Id].Process);
+            if (evt.Progress == ProgressType.Begin)
+            {
+                _drawingShips.Add(evt.Source.Id, new DrawingShip(evt.Source));
+                _coro.AddEntry(_drawingShips[evt.Source.Id].Process);
+            }
+            else if (evt.Progress == ProgressType.End)
+            {
+                _drawingShips[evt.Source.Id].Ship = evt.Source;
+            }
         }
 
         public void RemoveDrawing(Event evt)
@@ -44,25 +51,12 @@ namespace Tods
 
         public Ship FindShipByPos(Point pos)
         {
-            foreach (Ship ship in _ships.Values)
-            {
-                if (ship.X == pos.X && ship.Y == pos.Y)
-                {
-                    return ship;
-                }
-            }
-            return null;
+            return _ships.Values.FirstOrDefault(ship => ship.X == pos.X && ship.Y == pos.Y);
         }
 
         public IEnumerable<Ship> FindShipsByPos(Point pos)
         {
-            foreach (Ship ship in _ships.Values)
-            {
-                if (ship.X == pos.X && ship.Y == pos.Y)
-                {
-                    yield return ship;
-                }
-            }
+            return _ships.Values.Where(ship => ship.X == pos.X && ship.Y == pos.Y);
         }
 
         // run in rendering thread
@@ -176,6 +170,7 @@ namespace Tods
             {
                 case EventType.Spawn:
                     _ships.Add(evt.Source.Id, evt.Source);
+                    _events.Enqueue(evt);
                     break;
                 case EventType.Despawn:
                     _events.Enqueue(evt);
@@ -226,30 +221,6 @@ namespace Tods
         }
     }
 
-    enum ShipState
-    {
-        Stop,
-        Moving,
-        Attacking,
-        Removed
-    }
-
-    class Ship
-    {
-        public string Id { get; set; }
-        public string PlayerId { get; set; }
-        public int X { get; set; }
-        public int Y { get; set; }
-        public int Hp { get; set; }
-        public bool Busy { get; set; }
-        public ShipState State { get; set; }
-
-        public Ship Clone()
-        {
-            return (Ship)MemberwiseClone();
-        }
-    }
-
     enum DrawingShipState
     {
         Stop,
@@ -292,7 +263,7 @@ namespace Tods
                 Event evt;
                 if (!_events.TryDequeue(out evt))
                 {
-                    yield return 0;
+                    yield return 16;
                     continue;
                 }
 
@@ -314,6 +285,8 @@ namespace Tods
                 // end of drawing
                 if (evt.Progress == ProgressType.End && evt.Type == EventType.Despawn)
                     break;
+
+                yield return 16;
             }
         }
 
@@ -348,7 +321,7 @@ namespace Tods
             var timeDelta = evt.Duration / WorldConstants.TickInterval;
             var vx = (endPos.X - startPos.X) / timeDelta;
             var vy = (endPos.Y - startPos.Y) / timeDelta;
-            for (int i = 0; i < timeDelta; i++)
+            for (var i = 0; i < timeDelta; i++)
             {
                 X += vx;
                 Y += vy;
@@ -382,85 +355,22 @@ namespace Tods
 
     static class ColorTable
     {
-        public static readonly Color[] Values = new[]
-        {
+        private static readonly Color[] Values = {
             Color.Red, Color.PowderBlue, Color.Salmon, Color.Silver
         };
 
-        private static readonly Dictionary<string /* playerId */, Color> _playerColors = new Dictionary<string, Color>();
+        private static readonly Dictionary<string /* playerId */, Color> PlayerColors = new Dictionary<string, Color>();
         private static int _colorIndex;
 
         public static Color FindPlayerColor(string playerId)
         {
-            if (!_playerColors.ContainsKey(playerId))
-                _playerColors.Add(playerId, Values[_colorIndex++]);
-            return _playerColors[playerId];
+            if (!PlayerColors.ContainsKey(playerId))
+                PlayerColors.Add(playerId, Values[_colorIndex++]);
+            return PlayerColors[playerId];
         }
     }
 
-    enum EventType
-    {
-        Move,
-        Attack,
-        Spawn,
-        Despawn,
-        Attacked,
-        Merged
-    }
-
-    enum ProgressType
-    {
-        Command,
-        Begin,
-        Progress,
-        End
-    }
-
-    class Event
-    {
-        public long Id { get; set; }
-        public Ship Source { get; set; }
-        public EventType Type { get; set; }
-        public ProgressType Progress { get; set; }
-        public float Duration { get; set; }
-
-        public int DestX { get; set; }
-        public int DestY { get; set; }
-        public string TargetShipId { get; set; }
-
-        public override string ToString()
-        {
-            return $"Id: {Id}, Source: {Source}, Type: {Type}, Progress: {Progress}, Duration: {Duration}, DestX: {DestX}, DestY: {DestY}, TargetShipId: {TargetShipId}";
-        }
-    }
-
-    class WorldConstants
-    {
-        public const int TickInterval = 16;
-
-        public static readonly float Sqrt3 = (float)Math.Sqrt(3);
-        public const int Radius = 32;
-        public static readonly float TileHeight = Radius * 2;
-        public static readonly float TileWidth = Radius * Sqrt3;
-
-        public static readonly float BoxWidth = Radius * Sqrt3;
-        public static readonly float BoxHeight = Radius;
-
-        public static readonly float TranslationBoxWidth = BoxWidth / 2f;
-        public static readonly float TranslationBoxHeight = BoxHeight / 2f;
-    }
-
-    enum Direction
-    {
-        /*
-           A   B
-        F         C
-           E   D
-        */
-        A, B, C, D, E, F
-    }
-
-    class DrawingUtils
+    static class DrawingUtils
     {
         public static void DrawTile(Graphics g, Pen pen, int x, int y)
         {
@@ -474,406 +384,6 @@ namespace Tods
             }
         }
 
-    }
-
-    static class TileUtils
-    {
-        public static PointF[] CalculateVertices(int sides, int radius, int startingAngle, PointF center)
-        {
-            if (sides < 3)
-                throw new ArgumentException("Polygon must have 3 sides or more.");
-
-            var points = new List<PointF>();
-            float step = 360.0f / sides;
-
-            float angle = startingAngle; //starting angle
-            for (double i = startingAngle; i < startingAngle + 360.0; i += step) //go in a full circle
-            {
-                points.Add(DegreesToXY(angle, radius, center)); //code snippet from above
-                angle += step;
-            }
-
-            return points.ToArray();
-        }
-
-        /// <summary>
-        /// Calculates a point that is at an angle from the origin (0 is to the right)
-        /// </summary>
-        private static PointF DegreesToXY(float degrees, float radius, PointF origin)
-        {
-            PointF xy = new PointF();
-            double radians = degrees * Math.PI / 180.0;
-
-            xy.X = (float)Math.Cos(radians) * radius + origin.X;
-            xy.Y = (float)Math.Sin(-radians) * radius + origin.Y;
-
-            return xy;
-        }
-
-        /// <summary>
-        /// Calculates the angle a point is to the origin (0 is to the right)
-        /// </summary>
-        private static float XYToDegrees(PointF xy, PointF origin)
-        {
-            float deltaX = origin.X - xy.X;
-            float deltaY = origin.Y - xy.Y;
-
-            double radAngle = Math.Atan2(deltaY, deltaX);
-            double degreeAngle = radAngle * 180.0 / Math.PI;
-
-            return (float)(180.0 - degreeAngle);
-        }
-
-        public static Point TranslatePixelToTile(Point mousePos)
-        {
-            int boxX = (int)(mousePos.X / WorldConstants.TranslationBoxWidth);
-            int boxY = (int)(mousePos.Y / WorldConstants.TranslationBoxHeight);
-            int tileY = (boxY + 2) / 3;
-            int tileX = tileY % 2 == 0 ? (boxX + 1) / 2 : boxX / 2;
-
-            if ((boxY + 2) % 3 == 0)
-            {
-                var tx = (mousePos.X - boxX * WorldConstants.TranslationBoxWidth);
-                var ty = (mousePos.Y - boxY * WorldConstants.TranslationBoxHeight);
-                if (tileY % 2 == 1)
-                {
-                    if (boxX % 2 == 0) { if (WorldConstants.TranslationBoxHeight - tx / WorldConstants.Sqrt3 > ty) tileY--; }
-                    else { if (tx / WorldConstants.Sqrt3 > ty) { tileY--; tileX++; } }
-                }
-                else
-                {
-                    if (boxX % 2 == 0) { if (tx / WorldConstants.Sqrt3 > ty) { tileY--; } }
-                    else { if (WorldConstants.TranslationBoxHeight - tx / WorldConstants.Sqrt3 > ty) { tileX--; tileY--; } }
-                }
-            }
-
-            return new Point(tileX, tileY);
-        }
-
-        public static PointF TranslateTileToPixel(Point tilePos)
-        {
-            var x = (tilePos.Y % 2 == 0) ? tilePos.X * WorldConstants.BoxWidth : (tilePos.X + 0.5f) * WorldConstants.BoxWidth;
-            var y = (tilePos.Y * 1.5f) * WorldConstants.Radius;
-            return new PointF(x, y);
-        }
-
-        public static Point GetMovedPos(Point tilePos, Direction dir)
-        {
-            var deltaX = tilePos.Y % 2 == 0 ? -1 : 0;
-            switch (dir)
-            {
-                case Direction.A:
-                    return new Point(tilePos.X + deltaX, tilePos.Y - 1);
-                case Direction.B:
-                    return new Point(tilePos.X + 1 + deltaX, tilePos.Y - 1);
-                case Direction.C:
-                    return new Point(tilePos.X + 1, tilePos.Y);
-                case Direction.D:
-                    return new Point(tilePos.X + 1 + deltaX, tilePos.Y + 1);
-                case Direction.E:
-                    return new Point(tilePos.X + deltaX, tilePos.Y + 1);
-                case Direction.F:
-                    return new Point(tilePos.X - 1, tilePos.Y);
-            }
-            throw new InvalidOperationException("invalid dir: " + dir);
-        }
-
-        public static Direction? FindDirection(Point pos1, Point pos2)
-        {
-            foreach (Direction dir in Enum.GetValues(typeof(Direction)))
-            {
-                if (GetMovedPos(pos1, dir).Equals(pos2))
-                    return dir;
-            }
-            return null;
-        }
-    }
-
-    class EmulatorInstructionBuilder
-    {
-        private readonly World _world;
-        private readonly List<EmulatorInstruction> _instructions = new List<EmulatorInstruction>();
-
-        public EmulatorInstructionBuilder(World world)
-        {
-            _world = world;
-        }
-
-        public EmulatorInstructionBuilder Wait(int delay)
-        {
-            _instructions.Add(new EmulatorEventInstruction(delay));
-            return this;
-        }
-
-        public EmulatorInstructionBuilder Spawn(Ship ship)
-        {
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.Begin,
-                    Type = EventType.Spawn
-                }, 100));
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.End,
-                    Type = EventType.Spawn
-                }));
-            return this;
-        }
-
-        public EmulatorInstructionBuilder Despawn(Ship ship)
-        {
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.Begin,
-                    Type = EventType.Despawn
-                }, 100));
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.End,
-                    Type = EventType.Despawn
-                }));
-            return this;
-        }
-
-        public EmulatorInstructionBuilder Move(Ship ship, Direction dir)
-        {
-            var duration = 500;
-            var nextPos = TileUtils.GetMovedPos(new Point(ship.X, ship.Y), dir);
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.Begin,
-                    Type = EventType.Move,
-                    Duration = duration,
-                    DestX = nextPos.X,
-                    DestY = nextPos.Y
-                }, duration));
-
-            Ship movedShip = ship.Clone();
-            movedShip.X = nextPos.X;
-            movedShip.Y = nextPos.Y; 
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = movedShip,
-                    Progress = ProgressType.End,
-                    Type = EventType.Move,
-                    DestX = nextPos.X,
-                    DestY = nextPos.Y
-                }));
-            _instructions.Add(new EmulatorLogicInstruction(() =>
-            {
-                // run in event thread
-                var mergedShip = movedShip.Clone();
-                foreach (Ship otherShip in _world.FindShipsByPos(nextPos))
-                {
-                    if (otherShip.Id == movedShip.Id)
-                        continue;
-
-                    Remove(otherShip);
-                    mergedShip.Hp += otherShip.Hp;
-                }
-                if (movedShip.Hp == mergedShip.Hp)
-                    return;
-
-                _instructions.Add(new EmulatorEventInstruction(_world,
-                    new Event
-                    {
-                        Source = mergedShip,
-                        Progress = ProgressType.End,
-                        Type = EventType.Merged
-                    }));
-            }, 0));
-            return this;
-        }
-
-        public EmulatorInstructionBuilder Attack(Ship ship, Direction dir)
-        {
-            // ship id를 받아서 emul 내부 갱신된 메모리에서 매번 조회하도록 함
-            // 그래야 실제 다른 객체를 접근해서 여전히 hp가 유효하다는 판단을 하지 않을 수 있음
-            if (ship.Hp <= 0)
-            {
-                return this;
-            }
-
-            var duration = 200;
-            var targetPos = TileUtils.GetMovedPos(new Point(ship.X, ship.Y), dir);
-            var target = _world.FindShipByPos(targetPos);
-            if (target == null || target.PlayerId.Equals(ship.PlayerId))
-                return this;
-
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.Begin,
-                    Type = EventType.Attack,
-                    Duration = duration,
-                    TargetShipId = target.Id,
-                    DestX = target.X,
-                    DestY = target.Y,
-                }, duration));
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.End,
-                    Type = EventType.Attack
-                }));
-
-            var attackedTarget = target.Clone();
-            attackedTarget.Hp -= ship.Hp / 5;
-            if (attackedTarget.Hp <= 0)
-            {
-                Despawn(attackedTarget);
-            }
-            else
-            {
-                _instructions.Add(new EmulatorEventInstruction(_world,
-                    new Event
-                    {
-                        Source = attackedTarget,
-                        Progress = ProgressType.End,
-                        Type = EventType.Attacked
-                    }));
-            }
-            _instructions.Add(new EmulatorEventInstruction(100));
-            _instructions.Add(new EmulatorLogicInstruction(() =>
-            {
-                // run in event thread
-                Attack(ship, dir);
-            }, 0));
-            return this;
-        }
-
-        private void Remove(Ship ship)
-        {
-            _instructions.Add(new EmulatorEventInstruction(_world,
-                new Event
-                {
-                    Source = ship,
-                    Progress = ProgressType.End,
-                    Type = EventType.Despawn
-                }));
-        }
-
-        public void Run(Emulator emul)
-        {
-            emul.Add(Process);
-        }
-
-        public IEnumerable<int> Process()
-        {
-            while (true)
-            {
-                var insts = new List<EmulatorInstruction>(_instructions);
-                _instructions.Clear();
-
-                if (insts.Count == 0)
-                    break;
-
-                foreach (EmulatorInstruction inst in insts)
-                {
-                    foreach (int tick in inst.Process())
-                        yield return tick;
-                }
-            }
-        }
-    }
-
-    class Emulator
-    {
-        private readonly Coroutine _coro = new Coroutine();
-        private int _eventId;
-
-        public Emulator()
-        {
-            _coro.Start();
-        }
-
-        private int NextEventId()
-        {
-            return ++_eventId;
-        }
-
-        public void Add(Coroutine.LogicEntryDelegate delegator)
-        {
-            _coro.AddEntry(delegator);
-        }
-    }
-
-    interface EmulatorInstruction
-    {
-        IEnumerable<int> Process();
-    }
-
-    class EmulatorLogicInstruction : EmulatorInstruction
-    {
-        private readonly Action _action;
-        private readonly int _delay;
-
-        public EmulatorLogicInstruction(int delay)
-            : this(null, delay)
-        {
-        }
-
-        public EmulatorLogicInstruction(Action action, int delay)
-        {
-            _action = action;
-            _delay = delay;
-        }
-
-        public IEnumerable<int> Process()
-        {
-            _action();
-            yield return _delay;
-        }
-    }
-
-    class EmulatorEventInstruction : EmulatorInstruction
-    {
-        private readonly World _world;
-        private readonly Event _event;
-        private readonly int _delay;
-
-        public EmulatorEventInstruction(int delay)
-            : this(null, null, delay)
-        {
-        }
-
-        public EmulatorEventInstruction(World world, Event evt)
-            : this(world, evt, 0)
-        {
-        }
-
-        public EmulatorEventInstruction(World world, Event evt, int delay)
-        {
-            _world = world;
-            _event = evt;
-            _delay = delay;
-        }
-
-        public IEnumerable<int> Process()
-        {
-            if (_world != null && _event != null)
-            {
-                _world.ProcessEvent(_event);
-            }
-
-            if (_delay > 0)
-            {
-                yield return _delay;
-            }
-        }
     }
 
 }

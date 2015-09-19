@@ -25,7 +25,7 @@ namespace Tods
             DoubleBuffered = true;
 
             _world = new World { Width = 64, Height = 64 };
-            _server = new FakeServer();
+            _server = new ServerConnector();
         }
 
         private void FormScreen_MouseMove(object sender, MouseEventArgs e)
@@ -38,8 +38,14 @@ namespace Tods
             gamePanel.Invalidate();
 
             var events = _server.Poll(_playerId);
-            foreach (var evt in events)
-                _world.ProcessEvent(evt);
+            if (events != null)
+            {
+                foreach (var evt in events)
+                {
+                    Logger.Write($"Poll event[{evt}]");
+                    _world.ProcessEvent(evt);
+                }
+            }
 
             _world.Process();
         }
@@ -73,7 +79,6 @@ namespace Tods
         private void gamePanel_Click(object sender, EventArgs e)
         {
             var pos = GetCurrentTilePos();
-            var mouseEvt = (MouseEventArgs)e;
 
             if (_world.SelectedShip != null)
             {
@@ -82,13 +87,14 @@ namespace Tods
             else
             {
                 var ship = _world.FindShipByPos(pos);
-                if (ship != null)
+                if (ship != null && ship.PlayerId == _playerId)
                 {
                     _world.SelectedShip = ship;
-                    Debug.Print(string.Format("Ship[{0}] Hp={1}", ship.Id, ship.Hp));
+                    Logger.Write($"Ship[{ship.Id}] Hp={ship.Hp}");
                 }
                 else
                 {
+                    /*
                     ship = new Ship { Hp = 10000, Id = Guid.NewGuid().ToString(), X = pos.X, Y = pos.Y, PlayerId = _playerId };
                     _server.Post(new Event
                     {
@@ -96,6 +102,7 @@ namespace Tods
                         Type = EventType.Spawn,
                         Progress = ProgressType.Command
                     });
+                    */
                 }
             }
         }
@@ -129,7 +136,6 @@ namespace Tods
             else
             {
                 var shipPos = new Point(_world.SelectedShip.X, _world.SelectedShip.Y);
-                var otherPos = new Point(otherShip.X, otherShip.Y);
                 var direction = TileUtils.FindDirection(shipPos, pos);
                 if (direction.HasValue)
                 {

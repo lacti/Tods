@@ -5,6 +5,10 @@ VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tods", "Tods\Tods.csproj", "{3E82FD47-D197-46F8-95C7-7DD265F4A20E}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodsServer", "TodsServer\TodsServer.csproj", "{35460AA4-B94A-4B64-9418-7243EC3D2F01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TodsShare", "TodsShare\TodsShare.csproj", "{ACF200B9-0BAA-45C6-9A11-BED02CB2C4A9}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{3E82FD47-D197-46F8-95C7-7DD265F4A20E}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{3E82FD47-D197-46F8-95C7-7DD265F4A20E}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3E82FD47-D197-46F8-95C7-7DD265F4A20E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{35460AA4-B94A-4B64-9418-7243EC3D2F01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{35460AA4-B94A-4B64-9418-7243EC3D2F01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{35460AA4-B94A-4B64-9418-7243EC3D2F01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{35460AA4-B94A-4B64-9418-7243EC3D2F01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ACF200B9-0BAA-45C6-9A11-BED02CB2C4A9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ACF200B9-0BAA-45C6-9A11-BED02CB2C4A9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ACF200B9-0BAA-45C6-9A11-BED02CB2C4A9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ACF200B9-0BAA-45C6-9A11-BED02CB2C4A9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

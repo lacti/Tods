@@ -1,23 +1,12 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Tods
 {
-    interface IServer
-    {
-        bool Register(string playerId);
-        bool Unregister(string playerId);
-
-        bool Post(Event evt);
-        List<Event> Poll(string playerId);
-    }
-
     class ServerWorld
     {
         public readonly ConcurrentDictionary<string, ServerPlayer> Players = new ConcurrentDictionary<string, ServerPlayer>();
@@ -35,7 +24,7 @@ namespace Tods
             ServerPlayer player;
             while (!Players.TryGetValue(playerId, out player))
             {
-                Players.TryAdd(playerId, new ServerPlayer(this));
+                Players.TryAdd(playerId, new ServerPlayer(this) { Id = playerId });
             }
             player.Online = true;
             _coro.AddEntry(player.ProcessQueue);
@@ -56,6 +45,7 @@ namespace Tods
         {
             foreach (var player in Players.Values)
             {
+                Logger.Write($"Send to player[{player.Id}] = {evt}");
                 player.PollQueue.Enqueue(evt);
             }
         }
@@ -75,14 +65,37 @@ namespace Tods
         {
             return GetPlayer(playerId)?.PollQueue;
         }
+
+        public List<Point> GetEmptyLocation(int count)
+        {
+            var maxX = 20;
+            var maxY = 12;
+            var locs = new List<Point>();
+            var rand = new Random();
+            while (locs.Count < count)
+            {
+                var x = rand.Next(maxX);
+                var y = rand.Next(maxY);
+                if (Ships.Values.Any(e => e.X == x && e.Y == y))
+                    continue;
+
+                if (locs.Any(e => e.X == x && e.Y == y))
+                    continue;
+
+                locs.Add(new Point(x, y));
+            }
+
+            return locs;
+        }
     }
 
     class ServerPlayer
     {
         public readonly ConcurrentQueue<Event> PostQueue = new ConcurrentQueue<Event>();
         public readonly ConcurrentQueue<Event> PollQueue = new ConcurrentQueue<Event>();
-        
+
         private readonly ServerWorld _world;
+        public string Id { get; set; }
         public bool Online { get; set; }
 
         public ServerPlayer(ServerWorld world)
@@ -97,10 +110,12 @@ namespace Tods
                 Event evt;
                 while (PostQueue.TryDequeue(out evt))
                 {
-                    Debug.Print(evt.ToString());
+                    Logger.Write($"Process [{evt}]");
                     foreach (var tick in ProcessEvent(evt))
                         yield return tick;
+                    yield return 32;
                 }
+                yield return 32;
             }
         }
 
@@ -122,7 +137,6 @@ namespace Tods
             foreach (var tick in delegator(evt))
                 yield return tick;
         }
-
 
         private IEnumerable<int> ProcessSpawnEvent(Event evt)
         {
@@ -297,8 +311,7 @@ namespace Tods
         }
     }
 
-    
-    class FakeServer : IServer
+    class SimpleServer : IServer
     {
         // network thread
         private readonly ServerWorld _world = new ServerWorld();
@@ -306,13 +319,42 @@ namespace Tods
         public bool Register(string playerId)
         {
             _world.RegisterPlayer(playerId);
+
+            foreach (var ship in _world.Ships.Values)
+            {
+                _world.GetPollQueue(playerId).Enqueue(new Event
+                {
+                    Source = ship,
+                    Type = EventType.Spawn,
+                    Progress = ProgressType.Begin
+                });
+                _world.GetPollQueue(playerId).Enqueue(new Event
+                {
+                    Source = ship,
+                    Type = EventType.Spawn,
+                    Progress = ProgressType.End
+                });
+            }
+
+            var count = 5;
+            var locs = _world.GetEmptyLocation(count);
+            foreach (var loc in locs)
+            {
+                var newShip = new Ship { Hp = 10000, Id = Guid.NewGuid().ToString(), X = loc.X, Y = loc.Y, PlayerId = playerId };
+                Post(new Event
+                {
+                    Source = newShip,
+                    Type = EventType.Spawn,
+                    Progress = ProgressType.Command
+                });
+            }
             return true;
         }
 
         public bool Unregister(string playerId)
         {
             _world.UnregisterPlayer(playerId);
-            return false;
+            return true;
         }
 
         public bool Post(Event evt)
